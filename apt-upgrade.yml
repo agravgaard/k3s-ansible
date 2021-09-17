@@ -1,0 +1,12 @@
+- hosts: k3s_cluster
+  become: yes
+  tasks:
+  - name: Update and upgrade apt packages
+    apt:
+      upgrade: yes
+      update_cache: yes
+      cache_valid_time: 3600
+
+  - name: Reboot to apply potential  kernel updates
+    reboot:
+      reboot_timeout: 600

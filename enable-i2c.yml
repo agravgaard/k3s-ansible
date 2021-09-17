@@ -1,0 +1,23 @@
+- hosts: k3s_cluster
+  become: yes
+  tasks:
+  - name: Add dtoverlay
+    blockinfile:
+      path: /boot/config.txt
+      insertafter: EOF
+      block: |
+        dtoverlay=i2c1,pins_44_45
+        dtoverlay=i2c-rtc,mcp7940x
+
+  - name: Enable I2C
+    shell: "raspi-config nonint do_i2c 0"
+
+  - name: Reboot to apply i2c (with 10 min timeout)
+    reboot:
+      reboot_timeout: 600
+
+  - name: Install i2c-tools
+    package:
+      name: i2c-tools
+      update_cache: yes
+      cache_valid_time: 3600
