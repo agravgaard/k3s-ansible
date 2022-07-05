@@ -1,0 +1,67 @@
+---
+- name: nginx configuration
+  block:
+    - name: Install nginx & certbot
+      package:
+        name:
+          - nginx-full
+        update_cache: yes
+
+    # - name: Create CSR and KEY
+    #  command:
+    #    cmd: >
+    #      openssl req -x509 -newkey rsa:2048 -nodes
+    #      -out /etc/ssl/certs/turingpi.crt
+    #      -keyout /etc/ssl/private/turingpi.key
+    #      -subj "/C=DK/ST=Aarhus/L=Aarhus/O=Andreas Gravgaard Andersen/CN=turingpi"
+    #      -days 365
+    #    creates: /etc/ssl/certs/turingpi.crt
+
+    - name: copy cert.pem
+      template:
+        src: "cert.pem.j2"
+        dest: "/etc/ssl/certs/cert.pem"
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: copy key.pem
+      template:
+        src: "key.pem.j2"
+        dest: "/etc/ssl/private/key.pem"
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: copy cloudflare CA cert
+      template:
+        src: "cloudflare.crt.j2"
+        dest: "/etc/ssl/certs/cloudflare.crt"
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: delete default config
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Create dhparam
+      command:
+        cmd: >
+          openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096
+        creates: /etc/ssl/certs/dhparam.pem
+
+    - name: Print IPs
+      set_fact:
+        addresses: "{{ hostvars[inventory_hostname]['groups']['k3s_cluster'] }}"
+        control_plane_addresses: "{{ hostvars[inventory_hostname]['groups']['master'] }}"
+
+    - name: Apply nginx config
+      template:
+        src: "nginx.conf.j2"
+        dest: "/etc/nginx/nginx.conf"
+        owner: root
+        group: root
+        mode: 0644
+  notify: nginx_restart

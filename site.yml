@@ -8,6 +8,11 @@
     - role: download
     - role: raspberrypi
 
+- hosts: loadbalancer
+  become: yes
+  roles:
+    - role: loadbalancer
+
 - hosts: master
   become: yes
   roles:

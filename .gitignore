@@ -1,0 +1,5 @@
+
+# Certs
+roles/loadbalancer/templates/cert.pem.j2
+roles/loadbalancer/templates/cloudflare.crt.j2
+roles/loadbalancer/templates/key.pem.j2
