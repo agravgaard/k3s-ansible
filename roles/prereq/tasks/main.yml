@@ -52,3 +52,31 @@
     path: /etc/sudoers
     validate: 'visudo -cf %s'
   when: ansible_distribution in ['CentOS', 'Red Hat Enterprise Linux']
+
+- name: Test if swap is on
+  command: grep -v "^Filename" /proc/swaps
+  register: swaptest
+  when: swaptest is not defined or swaptest.rc == 0
+  failed_when: swaptest.rc < 0 or swaptest.rc >= 2
+
+- name: Disable SWAP since kubernetes can't work with swap enabled (1/2)
+  command: swapoff -a
+  when: swaptest.rc == 0
+
+- name: Disable SWAP since kubernetes can't work with swap enabled (2/2)
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+    replace: '# \1'
+  when: swaptest.rc == 0
+
+- name: Disable firewalld.service, as recommended in docs
+  # https://rancher.com/docs/k3s/latest/en/advanced/#additional-preparation-for-alpine-linux-setup
+  service:
+    name: firewalld
+    enabled: false
+    state: stopped
+  register: stop_firewalld_service
+  failed_when:
+    - "stop_firewalld_service.failed"
+    - "'Could not find the requested service' not in stop_firewalld_service.msg"
