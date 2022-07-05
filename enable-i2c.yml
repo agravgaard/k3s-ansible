@@ -1,23 +1,97 @@
-- hosts: k3s_cluster
+---
+- hosts: i2c_nodes
   become: yes
+  roles:
+    - raspberrypi
   tasks:
-  - name: Add dtoverlay
-    blockinfile:
-      path: /boot/config.txt
-      insertafter: EOF
-      block: |
-        dtoverlay=i2c1,pins_44_45
-        dtoverlay=i2c-rtc,mcp7940x
+    - name: Add dtoverlay
+      blockinfile:
+        path: /boot/config.txt
+        insertafter: EOF
+        block: |
+          dtparam=i2c_arm=on
+          dtoverlay=i2c1,pins_44_45
+          dtoverlay=i2c-rtc,mcp7940x
 
-  - name: Enable I2C
-    shell: "raspi-config nonint do_i2c 0"
+    - name: Add i2c module
+      blockinfile:
+        path: /etc/modules-load.d/raspberrypi.conf
+        insertafter: EOF
+        block: |
+          i2c-dev
+        mode: 0644
+        create: true
 
-  - name: Reboot to apply i2c (with 10 min timeout)
-    reboot:
-      reboot_timeout: 600
+    - name: Add i2c udev rules
+      blockinfile:
+        path: /etc/udev/rules.d/45-i2c-group.rules
+        insertafter: EOF
+        block: |
+          KERNEL=="i2c-[0-9]*", GROUP="i2c", MODE="0660"
+        mode: 0644
+        create: true
+      notify: reboot
 
-  - name: Install i2c-tools
-    package:
-      name: i2c-tools
-      update_cache: yes
-      cache_valid_time: 3600
+    - name: Enable I2C
+      command: raspi-config nonint do_i2c 0
+      when:
+        - detected_distribution | default("") == "Raspbian"
+      notify: reboot
+
+    - name: Install i2c-tools
+      package:
+        name:
+          - i2c-tools
+          - git
+          - python-pip
+        update_cache: yes
+
+    - name: install gpio python package
+      pip:
+        name:
+          - gpiozero
+
+    - name: Download scripts
+      git:
+        repo: 'https://github.com/nicholaswilde/turing-pi-scripts'
+        dest: /opt/turing-pi-scripts
+
+    - name: make scripts executable
+      file:
+        path: "/opt/turing-pi-scripts/{{ item }}"
+        mode: 0744
+      loop:
+        - turn-on-nodes.sh
+        - turn-off-nodes.sh
+        - listen-for-shutdown.py
+
+    - name: create i2c group
+      group:
+        name: i2c
+        state: present
+        system: true
+
+    - name: create plugdev group
+      group:
+        name: plugdev
+        state: present
+        system: true
+
+    - name: add a {{ ansible_user }} to i2c group
+      user:
+        name: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        groups:
+          - i2c
+          - plugdev
+        append: true
+
+    - name: add a userid to i2c group
+      user:
+        name: k8si2c
+        uid: 69420
+        group: i2c
+        groups:
+          - i2c
+          - plugdev
+        append: true
