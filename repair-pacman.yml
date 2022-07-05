@@ -1,0 +1,47 @@
+---
+- hosts: broken_pacman
+  become: yes
+  tasks:
+  - name: Copy libcurl
+    copy:
+      src: ./libcurl.so.4.7.0
+      remote_src: false
+      dest: /usr/lib/libcurl.so.4.7.0
+
+  - name: Copy libgpgme
+    copy:
+      src: ./libgpgme.so.11.26.0
+      remote_src: false
+      dest: /usr/lib/libgpgme.so.11.26.0
+
+  - name: Copy gpgme package
+    copy:
+      src: ./gpgme-1.17.1-1-aarch64.pkg.tar.xz
+      remote_src: false
+      dest: /var/cache/pacman/pkg/gpgme-1.17.1-1-aarch64.pkg.tar.xz
+
+  - name: Remove pacman lock
+    file:
+      path: /var/lib/pacman/db.lck
+      state: absent
+
+  - name: allow local install without gpg
+    lineinfile:
+      path: /etc/pacman.conf
+      regexp: '^LocalFileSigLevel = '
+      line: 'LocalFileSigLevel = Never'
+
+  - name: re-install gpgme from cache
+    command: pacman -U --noconfirm /var/cache/pacman/pkg/gpgme-1.17.1-1-aarch64.pkg.tar.xz --overwrite '*'
+
+  - name: force uninstall sqlite (temporarily)
+    command: pacman -Rdd --noconfirm sqlite
+
+  - name: re-install sqlite
+    command: pacman -U --noconfirm /var/cache/pacman/pkg/sqlite-3.38.2-1-aarch64.pkg.tar.xz --overwrite '*'
+
+  - name: update pacman repos
+    command: pacman -Syy --noconfirm
+
+  - name: update pacman packages
+    command: pacman -Syu --noconfirm

@@ -1,0 +1,6 @@
+---
+- hosts: broken_pacman
+  become: yes
+  tasks:
+  - name: re-install all packages with pacman
+    shell: set -o pipefail && pacman -Qqn | pacman -S --noconfirm --overwrite '*' -
