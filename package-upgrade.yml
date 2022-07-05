@@ -1,0 +1,26 @@
+---
+- hosts: k3s_cluster
+  become: yes
+  tasks:
+  - name: Update and upgrade packages
+    community.general.pacman:
+      upgrade: yes
+      update_cache: yes
+      upgrade_extra_args: --noconfirm
+
+  - name: Update and upgrade packages
+    community.general.pacman:
+      name:
+        - open-iscsi
+        - nfs-utils
+      state: present
+
+  - name: Disable attach-bluetooth.service, which may cripple the node
+    service:
+      name: attach-bluetooth
+      enabled: false
+      state: stopped
+
+  - name: Reboot to apply potential  kernel updates
+    reboot:
+      reboot_timeout: 600
