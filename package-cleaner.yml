@@ -1,0 +1,40 @@
+---
+- hosts: k3s_cluster
+  become: yes
+  tasks:
+    - name: Find orphans
+      command: pacman -Qtdq
+      register: result
+      changed_when: result.stdout != ""
+      notify: Print result
+
+    - name: Flush handlers before next task
+      meta: flush_handlers
+
+    - name: Remove orphans
+      community.general.pacman:
+        name: "{{ result.stdout_lines }}"
+        state: absent
+        remove_nosave: true
+        extra_args: "--cascade --recursive"
+      when: result.stdout != ""
+
+    - name: Remove package files for uninstalled packages
+      command: paccache -ruk0
+      register: result
+      changed_when: result.stdout != "==> no candidate packages found for pruning"
+      notify: Print result
+
+    - name: Flush handlers before next task
+      meta: flush_handlers
+
+    - name: Remove all except most recent package files
+      command: paccache -rk1
+      register: result
+      changed_when: result.stdout != "==> no candidate packages found for pruning"
+      notify: Print result
+
+  handlers:
+    - name: Print result
+      debug:
+        var: result.stdout
