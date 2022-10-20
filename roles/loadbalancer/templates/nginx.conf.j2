@@ -83,6 +83,11 @@ http {
     server {{ address }}:9443;
 {% endfor %}
   }
+  upstream turingpi_unshort {
+{% for address in addresses %}
+    server {{ address }}:8111;
+{% endfor %}
+  }
 
   include       mime.types;
   default_type  application/octet-stream;
@@ -141,7 +146,32 @@ http {
     server_name pihole.cyberbunny.cyou;
 
     location / {
-      proxy_pass turingpi_pihole_https$request_uri;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_pass http://turingpi_pihole_https;
+      proxy_redirect http://turingpi_pihole_https https://$host;
+      if ( $request_uri ~ ^/(.*)$ ) {
+        proxy_pass          http://turingpi_pihole_https/admin/$1;
+      }
+    }
+  }
+
+  server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name tunshort.cyberbunny.cyou;
+    location / {
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_pass http://turingpi_unshort;
+      proxy_redirect http://turingpi_unshort http://$host;
+      if ( $request_uri ~ ^/(.*)$ ) {
+        proxy_pass          http://turingpi_unshort/d/t.co/$1;
+      }
     }
   }
 }
